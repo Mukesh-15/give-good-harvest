@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Donation } from "../types";
 import { useToast } from "@/components/ui/use-toast";
@@ -71,7 +70,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Donations by current user
   const userDonations = user
-    ? donations.filter((d) => d.donorId === user.id || d.donorId === user._id)
+    ? donations.filter((d) => d.donorId === user.id)
     : [];
 
   // Donations accepted by current NGO
