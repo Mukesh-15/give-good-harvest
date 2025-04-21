@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
-import { users } from '../data/mockData';
 import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
@@ -10,6 +9,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (userData: RegisterData) => Promise<void>;
+  token: string | null;
 }
 
 interface RegisterData {
@@ -26,55 +26,66 @@ export const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: () => {},
   register: async () => {},
+  token: null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for saved user in localStorage on initial load
+    // Load user and token from localStorage on initial load
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
+    const savedToken = localStorage.getItem('token');
+    if (savedUser && savedToken) {
       setUser(JSON.parse(savedUser));
+      setToken(savedToken);
       setIsAuthenticated(true);
     }
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const foundUser = users.find(u => u.email === email);
-        
-        if (foundUser && password === 'password') { // In real app, we would properly verify the password
-          setUser(foundUser);
-          setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(foundUser));
-          toast({
-            title: "Login successful",
-            description: `Welcome back, ${foundUser.name}!`,
-          });
-          resolve();
-        } else {
-          toast({
-            title: "Login failed",
-            description: "Invalid email or password",
-            variant: "destructive",
-          });
-          reject(new Error('Invalid credentials'));
-        }
-      }, 1000);
-    });
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({
+          title: "Login failed",
+          description: data.message || "Invalid credentials",
+          variant: "destructive",
+        });
+        throw new Error(data.message || "Login failed");
+      }
+      setUser(data.user);
+      setToken(data.token);
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${data.user.name}!`,
+      });
+    } catch (err: any) {
+      throw err;
+    }
   };
 
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
+    setToken(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     toast({
       title: "Logged out",
       description: "You have been successfully logged out",
@@ -82,46 +93,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (userData: RegisterData) => {
-    // Simulate API call
-    return new Promise<void>((resolve, reject) => {
-      setTimeout(() => {
-        const existingUser = users.find(u => u.email === userData.email);
-        
-        if (existingUser) {
-          toast({
-            title: "Registration failed",
-            description: "Email already exists",
-            variant: "destructive",
-          });
-          reject(new Error('Email already exists'));
-        } else {
-          // In a real app, we would create a new user in the database
-          const newUser: User = {
-            id: (users.length + 1).toString(),
-            name: userData.name,
-            email: userData.email,
-            role: userData.role,
-            organization: userData.organization,
-            verified: false,
-          };
-          
-          // For demo purposes, we'll just login the user
-          setUser(newUser);
-          setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(newUser));
-          
-          toast({
-            title: "Registration successful",
-            description: `Welcome, ${newUser.name}!`,
-          });
-          resolve();
-        }
-      }, 1000);
-    });
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({
+          title: "Registration failed",
+          description: data.message || "Could not register",
+          variant: "destructive",
+        });
+        throw new Error(data.message || "Registration failed");
+      }
+      setUser(data.user);
+      setToken(data.token);
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token', data.token);
+      toast({
+        title: "Registration successful",
+        description: `Welcome, ${data.user.name}!`,
+      });
+    } catch (err: any) {
+      throw err;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register, token }}>
       {children}
     </AuthContext.Provider>
   );
