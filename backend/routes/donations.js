@@ -1,4 +1,3 @@
-
 const express = require('express');
 const Donation = require('../models/Donation');
 const auth = require('../middleware/auth');
@@ -71,6 +70,25 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
       return res.status(400).json({ message: 'Not authorized' });
     }
     donation.status = 'picked_up';
+    await donation.save();
+    res.json(donation);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Cancel donation (donor only)
+router.post('/:id/cancel', auth(['donor']), async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    
+    // Only donor can cancel their own pending donations
+    if (donation.donorId.toString() !== req.user.id || donation.status !== 'pending') {
+      return res.status(400).json({ message: 'Cannot cancel this donation' });
+    }
+
+    donation.status = 'cancelled';
     await donation.save();
     res.json(donation);
   } catch (err) {
