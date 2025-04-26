@@ -12,19 +12,24 @@ const donationSchema = new mongoose.Schema({
   location: {
     address: String,
     coordinates: {
-      lat: Number,
-      lng: Number,
+      type: {
+        lat: Number,
+        lng: Number
+      },
+      required: true
     },
   },
   status: { 
     type: String, 
-    enum: ['pending', 'accepted', 'picked_up', 'expired', 'cancelled'], 
+    enum: ['pending', 'accepted', 'picked_up', 'expired', 'cancelled', 'rejected', 'in_transit'], 
     default: 'pending' 
   },
   acceptedBy: {
     id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     name: String,
-  }
+  },
+  pickupTime: Date,
+  notes: String
 }, { timestamps: true });
 
 module.exports = mongoose.model('Donation', donationSchema);

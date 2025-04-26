@@ -28,11 +28,13 @@ export interface Donation {
     coordinates: {
       lat: number;
       lng: number;
-    }
+    } | [number, number]  // Support both object and array formats
   };
-  status: 'pending' | 'accepted' | 'picked_up' | 'expired' | 'cancelled';
+  status: 'pending' | 'accepted' | 'picked_up' | 'expired' | 'cancelled' | 'rejected' | 'in_transit';
   acceptedBy?: {
     id: string;
     name: string;
   };
+  pickupTime?: Date;
+  notes?: string;
 }

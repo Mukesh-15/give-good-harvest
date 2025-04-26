@@ -1,3 +1,4 @@
+
 const express = require('express');
 const Donation = require('../models/Donation');
 const auth = require('../middleware/auth');
@@ -62,14 +63,52 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
     if (!donation) return res.status(404).json({ message: 'Donation not found' });
-    // Only NGO who accepted can pick up
-    if (
-      donation.status !== 'accepted' ||
-      (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id)
-    ) {
+    
+    if (donation.status !== 'accepted' && donation.status !== 'in_transit' ||
+        (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id)) {
       return res.status(400).json({ message: 'Not authorized' });
     }
+    
     donation.status = 'picked_up';
+    donation.pickupTime = new Date();
+    await donation.save();
+    res.json(donation);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Mark as in transit (NGO only)
+router.post('/:id/transit', auth(['ngo']), async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    
+    if (donation.status !== 'accepted' ||
+        (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id)) {
+      return res.status(400).json({ message: 'Not authorized' });
+    }
+    
+    donation.status = 'in_transit';
+    await donation.save();
+    res.json(donation);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Reject donation (NGO only)
+router.post('/:id/reject', auth(['ngo']), async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    
+    if (donation.status !== 'pending') {
+      return res.status(400).json({ message: 'Can only reject pending donations' });
+    }
+    
+    donation.status = 'rejected';
+    donation.notes = req.body.notes;
     await donation.save();
     res.json(donation);
   } catch (err) {
