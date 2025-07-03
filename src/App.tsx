@@ -12,6 +12,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import DonateForm from "./pages/DonateForm";
 import MyDonations from "./pages/MyDonations";
 import BrowseDonations from "./pages/BrowseDonations";
@@ -36,6 +37,7 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/donate" element={<DonateForm />} />
                 <Route path="/my-donations" element={<MyDonations />} />
                 <Route path="/browse" element={<BrowseDonations />} />

@@ -76,15 +76,8 @@ const Login = () => {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link 
-                  to="#" 
+                  to="/forgot-password" 
                   className="text-sm text-primary hover:underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toast({
-                      title: "Password reset",
-                      description: "This feature would be available in the full version.",
-                    });
-                  }}
                 >
                   Forgot password?
                 </Link>
