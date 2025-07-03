@@ -3,7 +3,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Home, Plus, ListChecks, LogOut, User, UsersRound } from 'lucide-react';
+import { Home, Plus, ListChecks, LogOut, User, UsersRound, Shield } from 'lucide-react';
 
 interface NavItemProps {
   to: string;
@@ -71,6 +71,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <aside className="w-64 bg-muted border-r border-border p-4 hidden md:block">
             <nav className="space-y-2">
               <NavItem to="/" icon={<Home className="h-5 w-5" />} label="Dashboard" />
+              
+              {/* Admin specific navigation */}
+              {user?.role === 'admin' && (
+                <NavItem 
+                  to="/admin" 
+                  icon={<Shield className="h-5 w-5" />} 
+                  label="Admin Panel" 
+                />
+              )}
               
               {/* Donor specific navigation */}
               {user?.role === 'donor' && (

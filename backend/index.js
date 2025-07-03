@@ -16,6 +16,7 @@ connectDB();
 app.get('/', (req, res) => res.send('Food Donation API is running!'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/donations', require('./routes/donations'));
+app.use('/api/admin', require('./routes/admin'));
 
 // 404 Handler
 app.use((req, res) => res.status(404).json({ message: 'Not Found' }));
