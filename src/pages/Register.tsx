@@ -23,6 +23,14 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Define admin emails - should match backend
+  const ADMIN_EMAILS = [
+    'admin@givegoodharvest.com',
+    'your-email@example.com'  // Replace with your actual email
+  ];
+
+  const isAdminEmail = email && ADMIN_EMAILS.includes(email.toLowerCase());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -144,6 +152,12 @@ const Register = () => {
                   <RadioGroupItem value="ngo" id="ngo" />
                   <Label htmlFor="ngo" className="cursor-pointer">NGO or Food Redistribution Center</Label>
                 </div>
+                {isAdminEmail && (
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="admin" id="admin" />
+                    <Label htmlFor="admin" className="cursor-pointer">Administrator</Label>
+                  </div>
+                )}
               </RadioGroup>
             </div>
             

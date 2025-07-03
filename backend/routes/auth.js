@@ -8,6 +8,12 @@ dotenv.config();
 
 const router = express.Router();
 
+// Define admin emails - replace with your actual email
+const ADMIN_EMAILS = [
+  'admin@givegoodharvest.com',  // Replace with your email
+  'your-email@example.com'      // Add your actual email here
+];
+
 // Register
 router.post('/register', async (req, res) => {
   try {
@@ -15,6 +21,12 @@ router.post('/register', async (req, res) => {
     if (!name || !email || !password || !role) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    // Check if trying to register as admin with unauthorized email
+    if (role === 'admin' && !ADMIN_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({ message: 'Admin registration not allowed for this email' });
+    }
+
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: 'Email already exists' });
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -24,7 +36,7 @@ router.post('/register', async (req, res) => {
       password: hashedPassword,
       role,
       organization,
-      verified: role === 'admin'
+      verified: role === 'admin' || ADMIN_EMAILS.includes(email.toLowerCase())
     });
     await user.save();
 
@@ -44,6 +56,12 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    
+    // Additional check: if user role is admin but email is not in allowed list
+    if (user.role === 'admin' && !ADMIN_EMAILS.includes(email.toLowerCase())) {
+      return res.status(403).json({ message: 'Admin access not authorized for this account' });
+    }
+    
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
