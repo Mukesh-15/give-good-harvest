@@ -3,20 +3,43 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { getFirestore } from 'firebase/firestore';
 
+// Firebase configuration with fallback values for development
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "demo-project.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project-id",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "demo-project.appspot.com",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456"
 };
 
-const app = initializeApp(firebaseConfig);
-export const messaging = getMessaging(app);
-export const db = getFirestore(app);
+// Only initialize Firebase if we have actual configuration values
+const hasValidConfig = Object.values(firebaseConfig).every(value => 
+  value && !value.startsWith('demo-')
+);
+
+let app;
+let messaging;
+let db;
+
+if (hasValidConfig) {
+  try {
+    app = initializeApp(firebaseConfig);
+    messaging = getMessaging(app);
+    db = getFirestore(app);
+  } catch (error) {
+    console.warn('Firebase initialization failed:', error);
+  }
+}
+
+export { messaging, db };
 
 export const requestNotificationPermission = async () => {
+  if (!messaging || !hasValidConfig) {
+    console.warn('Firebase messaging not available - skipping notification permission request');
+    return null;
+  }
+
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
@@ -32,9 +55,14 @@ export const requestNotificationPermission = async () => {
   }
 };
 
-export const onMessageListener = () =>
-  new Promise((resolve) => {
+export const onMessageListener = () => {
+  if (!messaging || !hasValidConfig) {
+    return new Promise(() => {}); // Return a promise that never resolves
+  }
+
+  return new Promise((resolve) => {
     onMessage(messaging, (payload) => {
       resolve(payload);
     });
   });
+};

@@ -76,6 +76,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
           },
           body: JSON.stringify({ fcmToken }),
         });
+        console.log('FCM token registered successfully');
+      } else {
+        console.log('FCM token not available - notifications will work via polling');
       }
     } catch (error) {
       console.error('Error registering for notifications:', error);
@@ -122,11 +125,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     if (user) {
       onMessageListener()
         .then((payload: any) => {
-          toast({
-            title: payload.notification?.title || "New Notification",
-            description: payload.notification?.body || "You have a new notification",
-          });
-          fetchNotifications(); // Refresh notifications list
+          if (payload && payload.notification) {
+            toast({
+              title: payload.notification.title || "New Notification",
+              description: payload.notification.body || "You have a new notification",
+            });
+            fetchNotifications(); // Refresh notifications list
+          }
         })
         .catch((err) => console.log('Failed to receive notification:', err));
     }
