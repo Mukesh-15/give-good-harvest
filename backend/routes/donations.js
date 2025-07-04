@@ -1,7 +1,7 @@
+
 const express = require('express');
 const Donation = require('../models/Donation');
 const auth = require('../middleware/auth');
-const { notifyNewDonation, notifyStatusUpdate } = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -21,10 +21,6 @@ router.post('/', auth(['donor']), async (req, res) => {
       location
     });
     await newDonation.save();
-    
-    // Notify all NGOs about new donation
-    await notifyNewDonation(newDonation);
-    
     res.status(201).json(newDonation);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -56,10 +52,6 @@ router.post('/:id/accept', auth(['ngo']), async (req, res) => {
     donation.status = 'accepted';
     donation.acceptedBy = { id: req.user.id, name: req.user.name };
     await donation.save();
-    
-    // Notify donor about acceptance
-    await notifyStatusUpdate(donation, 'accepted');
-    
     res.json(donation);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -80,10 +72,6 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
     donation.status = 'picked_up';
     donation.pickupTime = new Date();
     await donation.save();
-    
-    // Notify donor about pickup
-    await notifyStatusUpdate(donation, 'picked_up');
-    
     res.json(donation);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -122,10 +110,6 @@ router.post('/:id/reject', auth(['ngo']), async (req, res) => {
     donation.status = 'rejected';
     donation.notes = req.body.notes;
     await donation.save();
-    
-    // Notify donor about rejection
-    await notifyStatusUpdate(donation, 'rejected');
-    
     res.json(donation);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -145,12 +129,6 @@ router.post('/:id/cancel', auth(['donor']), async (req, res) => {
 
     donation.status = 'cancelled';
     await donation.save();
-    
-    // Notify NGO if donation was accepted
-    if (donation.acceptedBy) {
-      await notifyStatusUpdate(donation, 'cancelled');
-    }
-    
     res.json(donation);
   } catch (err) {
     res.status(500).json({ message: err.message });
