@@ -42,6 +42,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!token) return;
     setIsLoading(true);
     try {
+      console.log('Fetching donations for user:', user?.role);
       const res = await fetch(`${API_BASE}/api/donations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -50,6 +51,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error(errorData.message || "Failed to fetch donations");
       }
       const data = await res.json();
+      console.log('Fetched donations:', data.length);
       setDonations(
         data.map((d: any) => ({
           ...d,
@@ -92,6 +94,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     if (!token || !user) return;
     try {
+      console.log('Adding donation:', donationData);
       const res = await fetch(`${API_BASE}/api/donations`, {
         method: "POST",
         headers: {
@@ -126,7 +129,11 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
     acceptedByName?: string
   ) => {
     if (!token) return;
+    
+    console.log(`Updating donation ${id} to status ${status}`);
+    
     let fetchUrl = "";
+    let method = "POST";
     
     if (status === "accepted") {
       fetchUrl = `${API_BASE}/api/donations/${id}/accept`;
@@ -149,20 +156,25 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const res = await fetch(fetchUrl, {
-        method: "POST",
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({}),
       });
       
       if (!res.ok) {
         const errorData = await res.json();
+        console.error('Status update failed:', errorData);
         throw new Error(errorData.message || "Failed to update donation status");
       }
       
+      const updatedDonation = await res.json();
+      console.log('Status updated successfully:', updatedDonation);
+      
       const toastMessage = {
-        accepted: "Donation has been accepted",
+        accepted: "Donation has been accepted successfully",
         picked_up: "Donation has been marked as picked up",
         in_transit: "Donation is now in transit",
         cancelled: "Donation has been cancelled",
@@ -174,6 +186,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
         description: toastMessage,
       });
       
+      // Refresh donations to get latest data
       await fetchDonations();
     } catch (e: any) {
       console.error('Error updating donation status:', e);
@@ -182,6 +195,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
         description: e.message || "Failed to update status",
         variant: "destructive",
       });
+      throw e;
     }
   };
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useDonation } from '@/context/DonationContext';
@@ -33,7 +32,7 @@ const Dashboard = () => {
   
   // Welcome message based on user role
   const welcomeMessage = () => {
-    if (!user) return "Welcome to GiveGood Harvest";
+    if (!user) return "Welcome to Meal Bridge";
     
     switch (user.role) {
       case 'donor':
@@ -86,7 +85,7 @@ const NotLoggedInDashboard = () => (
         </CardHeader>
         <CardContent className="space-y-4">
           <p>
-            GiveGood Harvest connects restaurants, hotels, and households with excess food
+            Meal Bridge connects restaurants, hotels, and households with excess food
             to NGOs and food distribution centers, reducing waste and helping those in need.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">

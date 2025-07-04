@@ -54,7 +54,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
             <Heart className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold">GiveGood Harvest</span>
+            <span className="text-xl font-bold">Meal Bridge</span>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-6">

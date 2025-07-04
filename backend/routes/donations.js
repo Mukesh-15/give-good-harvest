@@ -28,6 +28,7 @@ router.post('/', auth(['donor']), async (req, res) => {
     
     res.status(201).json(newDonation);
   } catch (err) {
+    console.error('Error creating donation:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -37,16 +38,17 @@ router.get('/', auth(), async (req, res) => {
   try {
     let donations;
     if (req.user.role === 'ngo') {
-      donations = await Donation.find({ status: 'pending' });
+      donations = await Donation.find({ status: 'pending' }).sort({ createdAt: -1 });
     } else if (req.user.role === 'admin') {
       // Admin can see all donations
-      donations = await Donation.find({});
+      donations = await Donation.find({}).sort({ createdAt: -1 });
     } else {
       // Donors see their own donations
-      donations = await Donation.find({ donorId: req.user.id });
+      donations = await Donation.find({ donorId: req.user.id }).sort({ createdAt: -1 });
     }
     res.json(donations);
   } catch (err) {
+    console.error('Error fetching donations:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -55,18 +57,27 @@ router.get('/', auth(), async (req, res) => {
 router.post('/:id/accept', auth(['ngo']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    if (!donation) return res.status(404).json({ message: 'Donation not found' });
-    if (donation.status !== 'pending')
-      return res.status(400).json({ message: 'Donation not available' });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donation not found' });
+    }
+    
+    if (donation.status !== 'pending') {
+      return res.status(400).json({ message: 'Donation not available for acceptance' });
+    }
 
     donation.status = 'accepted';
-    donation.acceptedBy = { id: req.user.id, name: req.user.name };
-    await donation.save();
+    donation.acceptedBy = { 
+      id: req.user.id, 
+      name: req.user.name 
+    };
+    
+    const savedDonation = await donation.save();
+    console.log('Donation accepted successfully:', savedDonation);
     
     // Notify donor about acceptance
-    await notifyStatusUpdate(donation, 'accepted');
+    await notifyStatusUpdate(savedDonation, 'accepted');
     
-    res.json(donation);
+    res.json(savedDonation);
   } catch (err) {
     console.error('Error accepting donation:', err);
     res.status(500).json({ message: err.message });
@@ -77,24 +88,28 @@ router.post('/:id/accept', auth(['ngo']), async (req, res) => {
 router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donation not found' });
+    }
     
     if (donation.status !== 'accepted' && donation.status !== 'in_transit') {
-      return res.status(400).json({ message: 'Donation must be accepted first' });
+      return res.status(400).json({ message: 'Donation must be accepted or in transit first' });
     }
     
     if (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id) {
-      return res.status(400).json({ message: 'Not authorized to pick up this donation' });
+      return res.status(403).json({ message: 'Not authorized to pick up this donation' });
     }
     
     donation.status = 'picked_up';
     donation.pickupTime = new Date();
-    await donation.save();
+    
+    const savedDonation = await donation.save();
+    console.log('Donation marked as picked up:', savedDonation);
     
     // Notify donor about pickup
-    await notifyStatusUpdate(donation, 'picked_up');
+    await notifyStatusUpdate(savedDonation, 'picked_up');
     
-    res.json(donation);
+    res.json(savedDonation);
   } catch (err) {
     console.error('Error marking as picked up:', err);
     res.status(500).json({ message: err.message });
@@ -105,17 +120,28 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
 router.post('/:id/transit', auth(['ngo']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donation not found' });
+    }
     
-    if (donation.status !== 'accepted' ||
-        (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id)) {
-      return res.status(400).json({ message: 'Not authorized' });
+    if (donation.status !== 'accepted') {
+      return res.status(400).json({ message: 'Donation must be accepted first' });
+    }
+    
+    if (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this donation' });
     }
     
     donation.status = 'in_transit';
-    await donation.save();
-    res.json(donation);
+    const savedDonation = await donation.save();
+    console.log('Donation marked as in transit:', savedDonation);
+    
+    // Notify donor about transit status
+    await notifyStatusUpdate(savedDonation, 'in_transit');
+    
+    res.json(savedDonation);
   } catch (err) {
+    console.error('Error marking as in transit:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -124,21 +150,26 @@ router.post('/:id/transit', auth(['ngo']), async (req, res) => {
 router.post('/:id/reject', auth(['ngo']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donation not found' });
+    }
     
     if (donation.status !== 'pending') {
       return res.status(400).json({ message: 'Can only reject pending donations' });
     }
     
     donation.status = 'rejected';
-    donation.notes = req.body.notes;
-    await donation.save();
+    donation.notes = req.body.notes || 'Rejected by NGO';
+    
+    const savedDonation = await donation.save();
+    console.log('Donation rejected:', savedDonation);
     
     // Notify donor about rejection
-    await notifyStatusUpdate(donation, 'rejected');
+    await notifyStatusUpdate(savedDonation, 'rejected');
     
-    res.json(donation);
+    res.json(savedDonation);
   } catch (err) {
+    console.error('Error rejecting donation:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -147,23 +178,27 @@ router.post('/:id/reject', auth(['ngo']), async (req, res) => {
 router.post('/:id/cancel', auth(['donor']), async (req, res) => {
   try {
     const donation = await Donation.findById(req.params.id);
-    if (!donation) return res.status(404).json({ message: 'Donation not found' });
+    if (!donation) {
+      return res.status(404).json({ message: 'Donation not found' });
+    }
     
     // Only donor can cancel their own pending donations
     if (donation.donorId.toString() !== req.user.id || donation.status !== 'pending') {
-      return res.status(400).json({ message: 'Cannot cancel this donation' });
+      return res.status(403).json({ message: 'Cannot cancel this donation' });
     }
 
     donation.status = 'cancelled';
-    await donation.save();
+    const savedDonation = await donation.save();
+    console.log('Donation cancelled:', savedDonation);
     
     // Notify NGO if donation was accepted
     if (donation.acceptedBy) {
-      await notifyStatusUpdate(donation, 'cancelled');
+      await notifyStatusUpdate(savedDonation, 'cancelled');
     }
     
-    res.json(donation);
+    res.json(savedDonation);
   } catch (err) {
+    console.error('Error cancelling donation:', err);
     res.status(500).json({ message: err.message });
   }
 });
