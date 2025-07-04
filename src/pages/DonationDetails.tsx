@@ -1,22 +1,31 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDonation } from '@/context/DonationContext';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, MapPin, Clock, User, Phone } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, User, Phone, MessageCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 const DonationDetails = () => {
   const { id } = useParams<{ id: string }>();
-  const { getDonationById, updateDonationStatus } = useDonation();
+  const { getDonationById, updateDonationStatus, reload } = useDonation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   
   const donation = getDonationById(id || '');
   
+  // Reload donation data when component mounts to ensure we have latest status
+  useEffect(() => {
+    if (id) {
+      reload();
+    }
+  }, [id, reload]);
+
   if (!donation) {
     return (
       <div className="page-container">
@@ -55,17 +64,63 @@ const DonationDetails = () => {
     }
   };
   
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!user) return;
-    updateDonationStatus(donation.id, 'accepted', user.id, user.name);
+    try {
+      await updateDonationStatus(donation.id, 'accepted', user.id, user.name);
+      toast({
+        title: "Success!",
+        description: "You have successfully accepted this donation. You can now chat with the donor.",
+      });
+      // Reload to get updated data
+      setTimeout(() => {
+        reload();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to accept donation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
-  const handlePickup = () => {
-    updateDonationStatus(donation.id, 'picked_up');
+  const handlePickup = async () => {
+    try {
+      await updateDonationStatus(donation.id, 'picked_up');
+      toast({
+        title: "Success!",
+        description: "Donation marked as picked up successfully.",
+      });
+      setTimeout(() => {
+        reload();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to mark as picked up. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
-  const handleCancel = () => {
-    updateDonationStatus(donation.id, 'cancelled');
+  const handleCancel = async () => {
+    try {
+      await updateDonationStatus(donation.id, 'cancelled');
+      toast({
+        title: "Cancelled",
+        description: "Donation has been cancelled.",
+      });
+      setTimeout(() => {
+        reload();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cancel donation. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const canAccept = user?.role === 'ngo' && donation.status === 'pending';
@@ -73,6 +128,9 @@ const DonationDetails = () => {
                     donation.acceptedBy?.id === user.id;
   const canCancel = user?.role === 'donor' && donation.status === 'pending' && 
                     donation.donorId === user.id;
+  const canChat = (user?.role === 'donor' && donation.donorId === user.id) ||
+                  (user?.role === 'ngo' && donation.acceptedBy?.id === user.id) ||
+                  user?.role === 'admin';
   
   return (
     <div className="page-container max-w-5xl mx-auto">
@@ -159,7 +217,9 @@ const DonationDetails = () => {
               <div className="pt-2">
                 <p className="text-sm flex items-center gap-2">
                   <Phone className="h-4 w-4" /> 
-                  <span className="text-muted-foreground">(Contact details available after accepting)</span>
+                  <span className="text-muted-foreground">
+                    {donation.status === 'accepted' ? 'Contact available in chat' : 'Contact details available after accepting'}
+                  </span>
                 </p>
               </div>
             </CardContent>
@@ -187,6 +247,15 @@ const DonationDetails = () => {
                   </Button>
                 )}
                 
+                {canChat && donation.status !== 'pending' && (
+                  <Link to={`/chat?donation=${donation.id}`} className="w-full block">
+                    <Button variant="outline" className="w-full">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Open Chat
+                    </Button>
+                  </Link>
+                )}
+                
                 {donation.status === 'pending' && user?.role === 'donor' && donation.donorId === user.id && (
                   <Link to={`/edit-donation/${donation.id}`} className="w-full block">
                     <Button variant="outline" className="w-full">
@@ -196,10 +265,20 @@ const DonationDetails = () => {
                 )}
                 
                 {donation.status === 'accepted' && donation.acceptedBy && (
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm text-center">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
+                    <p className="text-sm text-center text-blue-800 dark:text-blue-300">
                       This donation has been accepted by <span className="font-medium">{donation.acceptedBy.name}</span>
                     </p>
+                    {canChat && (
+                      <div className="mt-2">
+                        <Link to={`/chat?donation=${donation.id}`} className="w-full block">
+                          <Button size="sm" className="w-full">
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            Chat Now
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 )}
                 

@@ -13,29 +13,39 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456"
 };
 
-// Only initialize Firebase if we have actual configuration values
+// Check if we have actual Firebase configuration
 const hasValidConfig = Object.values(firebaseConfig).every(value => 
-  value && !value.startsWith('demo-')
+  value && !value.startsWith('demo-') && value !== "demo-api-key"
 );
 
 let app;
 let messaging;
 let db;
 
-if (hasValidConfig) {
-  try {
-    app = initializeApp(firebaseConfig);
+// Always initialize Firebase app for demo purposes
+try {
+  app = initializeApp(firebaseConfig);
+  
+  // Only initialize messaging if we have valid config and we're in a browser
+  if (hasValidConfig && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     messaging = getMessaging(app);
-    db = getFirestore(app);
-  } catch (error) {
-    console.warn('Firebase initialization failed:', error);
   }
+  
+  db = getFirestore(app);
+} catch (error) {
+  console.warn('Firebase initialization failed:', error);
 }
 
 export { messaging, db };
 
 export const requestNotificationPermission = async () => {
-  if (!messaging || !hasValidConfig) {
+  // Skip if no valid Firebase config
+  if (!hasValidConfig) {
+    console.log('Using demo Firebase config - notifications will work via polling');
+    return null;
+  }
+
+  if (!messaging) {
     console.warn('Firebase messaging not available - skipping notification permission request');
     return null;
   }

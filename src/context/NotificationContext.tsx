@@ -117,10 +117,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     if (user) {
       fetchNotifications();
       registerForNotifications();
+      
+      // Set up polling for notifications every 30 seconds
+      const pollInterval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(pollInterval);
     }
   }, [user, token]);
 
-  // Listen for real-time notifications
+  // Listen for real-time notifications only if Firebase is properly configured
   useEffect(() => {
     if (user) {
       onMessageListener()
@@ -130,10 +134,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
               title: payload.notification.title || "New Notification",
               description: payload.notification.body || "You have a new notification",
             });
-            fetchNotifications(); // Refresh notifications list
+            fetchNotifications();
           }
         })
-        .catch((err) => console.log('Failed to receive notification:', err));
+        .catch((err) => {
+          // Silently handle the error since we have polling as fallback
+          console.log('Push notifications not available, using polling instead');
+        });
     }
   }, [user, toast]);
 

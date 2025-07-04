@@ -22,7 +22,9 @@ const io = socketIo(server, {
       "http://localhost:8080"
     ],
     methods: ["GET", "POST"]
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 app.use(express.json());
@@ -51,13 +53,16 @@ io.use(async (socket, next) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`User ${socket.user.name} connected`);
+  console.log(`User ${socket.user.name} (${socket.user.role}) connected`);
 
   // Join chat rooms
   socket.on('join-chat', async (chatId) => {
     try {
       const chat = await Chat.findById(chatId);
-      if (!chat) return;
+      if (!chat) {
+        socket.emit('error', 'Chat not found');
+        return;
+      }
 
       // Check if user has access to this chat
       const hasAccess = socket.user.role === 'admin' || 
@@ -66,9 +71,13 @@ io.on('connection', (socket) => {
       if (hasAccess) {
         socket.join(chatId);
         console.log(`User ${socket.user.name} joined chat ${chatId}`);
+        socket.emit('joined-chat', chatId);
+      } else {
+        socket.emit('error', 'Access denied to chat');
       }
     } catch (error) {
       console.error('Error joining chat:', error);
+      socket.emit('error', 'Failed to join chat');
     }
   });
 
@@ -78,13 +87,19 @@ io.on('connection', (socket) => {
       const { chatId, message } = data;
       
       const chat = await Chat.findById(chatId);
-      if (!chat) return;
+      if (!chat) {
+        socket.emit('error', 'Chat not found');
+        return;
+      }
 
       // Check if user has access to this chat
       const hasAccess = socket.user.role === 'admin' || 
         chat.participants.some(p => p.userId.toString() === socket.user.id);
 
-      if (!hasAccess) return;
+      if (!hasAccess) {
+        socket.emit('error', 'Access denied');
+        return;
+      }
 
       // Add message to chat
       const newMessage = {
@@ -109,16 +124,23 @@ io.on('connection', (socket) => {
       console.log(`Message sent in chat ${chatId} by ${socket.user.name}`);
     } catch (error) {
       console.error('Error sending message:', error);
+      socket.emit('error', 'Failed to send message');
     }
   });
 
   // Handle admin joining chat
   socket.on('admin-join-chat', async (chatId) => {
     try {
-      if (socket.user.role !== 'admin') return;
+      if (socket.user.role !== 'admin') {
+        socket.emit('error', 'Admin access required');
+        return;
+      }
 
       const chat = await Chat.findById(chatId);
-      if (!chat) return;
+      if (!chat) {
+        socket.emit('error', 'Chat not found');
+        return;
+      }
 
       // Add admin as participant if not already
       const isParticipant = chat.participants.some(p => 
@@ -144,11 +166,21 @@ io.on('connection', (socket) => {
       console.log(`Admin ${socket.user.name} joined chat ${chatId}`);
     } catch (error) {
       console.error('Error with admin joining chat:', error);
+      socket.emit('error', 'Failed to join as admin');
     }
   });
 
-  socket.on('disconnect', () => {
-    console.log(`User ${socket.user.name} disconnected`);
+  // Handle ping/pong for connection health
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`User ${socket.user.name} disconnected: ${reason}`);
+  });
+
+  socket.on('error', (error) => {
+    console.error(`Socket error for user ${socket.user.name}:`, error);
   });
 });
 
