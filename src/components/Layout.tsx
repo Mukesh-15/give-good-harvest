@@ -28,16 +28,19 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           { path: '/', label: 'Dashboard' },
           { path: '/donate', label: 'Donate Food' },
           { path: '/my-donations', label: 'My Donations' },
+          { path: '/chat', label: 'Chat' },
         ]
       : user.role === 'ngo'
       ? [
           { path: '/', label: 'Dashboard' },
           { path: '/browse', label: 'Browse Donations' },
           { path: '/accepted', label: 'Accepted Donations' },
+          { path: '/chat', label: 'Chat' },
         ]
       : [
           { path: '/', label: 'Dashboard' },
           { path: '/admin', label: 'Admin Panel' },
+          { path: '/chat', label: 'Chat' },
         ]
     : [
         { path: '/', label: 'Home' },
