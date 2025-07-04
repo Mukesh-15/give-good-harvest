@@ -14,10 +14,13 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.IO setup with CORS
+// Socket.IO setup with CORS - allow multiple frontend URLs
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:5173",
+      "http://localhost:8080"
+    ],
     methods: ["GET", "POST"]
   }
 });
