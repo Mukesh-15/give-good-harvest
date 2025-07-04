@@ -77,6 +77,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
     ? donations.filter((d) => d.donorId === user.id)
     : [];
 
+  // Fix: Include all statuses that represent accepted donations by this NGO
   const acceptedDonations =
     user && user.role === "ngo"
       ? donations.filter(

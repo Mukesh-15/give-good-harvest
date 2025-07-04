@@ -38,7 +38,13 @@ router.get('/', auth(), async (req, res) => {
   try {
     let donations;
     if (req.user.role === 'ngo') {
-      donations = await Donation.find({ status: 'pending' }).sort({ createdAt: -1 });
+      // NGOs see all donations (pending for acceptance, and their own accepted/picked_up/in_transit)
+      donations = await Donation.find({
+        $or: [
+          { status: 'pending' },
+          { 'acceptedBy.id': req.user.id }
+        ]
+      }).sort({ createdAt: -1 });
     } else if (req.user.role === 'admin') {
       // Admin can see all donations
       donations = await Donation.find({}).sort({ createdAt: -1 });
@@ -92,12 +98,14 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
       return res.status(404).json({ message: 'Donation not found' });
     }
     
-    if (donation.status !== 'accepted' && donation.status !== 'in_transit') {
-      return res.status(400).json({ message: 'Donation must be accepted or in transit first' });
+    // Check if user is authorized to pickup this donation
+    if (!donation.acceptedBy || String(donation.acceptedBy.id) !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to pick up this donation' });
     }
     
-    if (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to pick up this donation' });
+    // Allow pickup from accepted or in_transit status
+    if (!['accepted', 'in_transit'].includes(donation.status)) {
+      return res.status(400).json({ message: 'Donation must be accepted or in transit to be picked up' });
     }
     
     donation.status = 'picked_up';
@@ -124,12 +132,13 @@ router.post('/:id/transit', auth(['ngo']), async (req, res) => {
       return res.status(404).json({ message: 'Donation not found' });
     }
     
-    if (donation.status !== 'accepted') {
-      return res.status(400).json({ message: 'Donation must be accepted first' });
+    // Check if user is authorized to update this donation
+    if (!donation.acceptedBy || String(donation.acceptedBy.id) !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this donation' });
     }
     
-    if (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to update this donation' });
+    if (donation.status !== 'accepted') {
+      return res.status(400).json({ message: 'Donation must be accepted first' });
     }
     
     donation.status = 'in_transit';
