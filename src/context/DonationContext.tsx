@@ -1,9 +1,8 @@
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Donation } from "../types";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "./AuthContext";
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface DonationContextType {
   donations: Donation[];
@@ -46,7 +45,10 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
       const res = await fetch(`${API_BASE}/api/donations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch donations");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to fetch donations");
+      }
       const data = await res.json();
       setDonations(
         data.map((d: any) => ({
@@ -55,9 +57,10 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
         }))
       );
     } catch (e: any) {
+      console.error('Error fetching donations:', e);
       toast({
         title: "Error",
-        description: "Could not load donations",
+        description: e.message || "Could not load donations",
         variant: "destructive",
       });
     }
@@ -66,7 +69,6 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     fetchDonations();
-    // eslint-disable-next-line
   }, [token]);
 
   const userDonations = user
@@ -78,7 +80,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
       ? donations.filter(
           (donation) =>
             donation.acceptedBy?.id === user.id &&
-            ["accepted", "picked_up"].includes(donation.status)
+            ["accepted", "picked_up", "in_transit"].includes(donation.status)
         )
       : [];
 
@@ -98,13 +100,17 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         body: JSON.stringify(donationData),
       });
-      if (!res.ok) throw new Error("Failed to add donation");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to add donation");
+      }
       toast({
         title: "Donation added",
         description: "Your donation has been successfully listed",
       });
       await fetchDonations();
     } catch (e: any) {
+      console.error('Error adding donation:', e);
       toast({
         title: "Error",
         description: e.message || "Failed to add donation",
@@ -120,16 +126,18 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
     acceptedByName?: string
   ) => {
     if (!token) return;
-    let endpoint = `${API_BASE}/api/donations/${id}`;
-    let method = "POST";
     let fetchUrl = "";
     
     if (status === "accepted") {
-      fetchUrl = `${endpoint}/accept`;
+      fetchUrl = `${API_BASE}/api/donations/${id}/accept`;
     } else if (status === "picked_up") {
-      fetchUrl = `${endpoint}/pickup`;
+      fetchUrl = `${API_BASE}/api/donations/${id}/pickup`;
+    } else if (status === "in_transit") {
+      fetchUrl = `${API_BASE}/api/donations/${id}/transit`;
     } else if (status === "cancelled") {
-      fetchUrl = `${endpoint}/cancel`;
+      fetchUrl = `${API_BASE}/api/donations/${id}/cancel`;
+    } else if (status === "rejected") {
+      fetchUrl = `${API_BASE}/api/donations/${id}/reject`;
     } else {
       toast({
         title: "Not supported",
@@ -141,19 +149,24 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const res = await fetch(fetchUrl, {
-        method,
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
       });
       
-      if (!res.ok) throw new Error("Failed to update donation status");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update donation status");
+      }
       
       const toastMessage = {
         accepted: "Donation has been accepted",
         picked_up: "Donation has been marked as picked up",
+        in_transit: "Donation is now in transit",
         cancelled: "Donation has been cancelled",
+        rejected: "Donation has been rejected",
       }[status];
 
       toast({
@@ -163,6 +176,7 @@ export const DonationProvider: React.FC<{ children: React.ReactNode }> = ({
       
       await fetchDonations();
     } catch (e: any) {
+      console.error('Error updating donation status:', e);
       toast({
         title: "Error",
         description: e.message || "Failed to update status",

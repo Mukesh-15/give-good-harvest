@@ -1,3 +1,4 @@
+
 const express = require('express');
 const Donation = require('../models/Donation');
 const auth = require('../middleware/auth');
@@ -31,14 +32,19 @@ router.post('/', auth(['donor']), async (req, res) => {
   }
 });
 
-// Get all donations (open to NGOs, donors get their own)
+// Get all donations (NGOs see pending, donors see their own, admins see all)
 router.get('/', auth(), async (req, res) => {
   try {
     let donations;
-    if (req.user.role === 'ngo')
+    if (req.user.role === 'ngo') {
       donations = await Donation.find({ status: 'pending' });
-    else
+    } else if (req.user.role === 'admin') {
+      // Admin can see all donations
+      donations = await Donation.find({});
+    } else {
+      // Donors see their own donations
       donations = await Donation.find({ donorId: req.user.id });
+    }
     res.json(donations);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -62,6 +68,7 @@ router.post('/:id/accept', auth(['ngo']), async (req, res) => {
     
     res.json(donation);
   } catch (err) {
+    console.error('Error accepting donation:', err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -72,9 +79,12 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
     const donation = await Donation.findById(req.params.id);
     if (!donation) return res.status(404).json({ message: 'Donation not found' });
     
-    if (donation.status !== 'accepted' && donation.status !== 'in_transit' ||
-        (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id)) {
-      return res.status(400).json({ message: 'Not authorized' });
+    if (donation.status !== 'accepted' && donation.status !== 'in_transit') {
+      return res.status(400).json({ message: 'Donation must be accepted first' });
+    }
+    
+    if (donation.acceptedBy && String(donation.acceptedBy.id) !== req.user.id) {
+      return res.status(400).json({ message: 'Not authorized to pick up this donation' });
     }
     
     donation.status = 'picked_up';
@@ -86,6 +96,7 @@ router.post('/:id/pickup', auth(['ngo']), async (req, res) => {
     
     res.json(donation);
   } catch (err) {
+    console.error('Error marking as picked up:', err);
     res.status(500).json({ message: err.message });
   }
 });

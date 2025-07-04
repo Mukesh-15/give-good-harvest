@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDonation } from '@/context/DonationContext';
@@ -53,12 +52,16 @@ const DonationDetails = () => {
         return <Badge variant="secondary">Available</Badge>;
       case 'accepted':
         return <Badge className="bg-blue-500">Accepted</Badge>;
+      case 'in_transit':
+        return <Badge className="bg-orange-500">In Transit</Badge>;
       case 'picked_up':
         return <Badge className="bg-green-600">Picked Up</Badge>;
       case 'expired':
         return <Badge variant="destructive">Expired</Badge>;
       case 'cancelled':
         return <Badge variant="outline">Cancelled</Badge>;
+      case 'rejected':
+        return <Badge variant="destructive">Rejected</Badge>;
       default:
         return null;
     }
@@ -72,14 +75,34 @@ const DonationDetails = () => {
         title: "Success!",
         description: "You have successfully accepted this donation. You can now chat with the donor.",
       });
-      // Reload to get updated data
       setTimeout(() => {
         reload();
       }, 1000);
     } catch (error) {
+      console.error('Error accepting donation:', error);
       toast({
         title: "Error",
         description: "Failed to accept donation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleTransit = async () => {
+    try {
+      await updateDonationStatus(donation.id, 'in_transit');
+      toast({
+        title: "Success!",
+        description: "Donation marked as in transit.",
+      });
+      setTimeout(() => {
+        reload();
+      }, 1000);
+    } catch (error) {
+      console.error('Error marking as in transit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to mark as in transit. Please try again.",
         variant: "destructive",
       });
     }
@@ -96,6 +119,7 @@ const DonationDetails = () => {
         reload();
       }, 1000);
     } catch (error) {
+      console.error('Error marking as picked up:', error);
       toast({
         title: "Error",
         description: "Failed to mark as picked up. Please try again.",
@@ -115,6 +139,7 @@ const DonationDetails = () => {
         reload();
       }, 1000);
     } catch (error) {
+      console.error('Error cancelling donation:', error);
       toast({
         title: "Error",
         description: "Failed to cancel donation. Please try again.",
@@ -124,7 +149,10 @@ const DonationDetails = () => {
   };
   
   const canAccept = user?.role === 'ngo' && donation.status === 'pending';
-  const canPickup = user?.role === 'ngo' && donation.status === 'accepted' && 
+  const canTransit = user?.role === 'ngo' && donation.status === 'accepted' && 
+                     donation.acceptedBy?.id === user.id;
+  const canPickup = user?.role === 'ngo' && 
+                    (donation.status === 'accepted' || donation.status === 'in_transit') && 
                     donation.acceptedBy?.id === user.id;
   const canCancel = user?.role === 'donor' && donation.status === 'pending' && 
                     donation.donorId === user.id;
@@ -179,6 +207,10 @@ const DonationDetails = () => {
                     <p className="text-foreground">
                       {donation.status === 'accepted' 
                         ? `Accepted by ${donation.acceptedBy?.name}` 
+                        : donation.status === 'in_transit'
+                        ? `In transit - ${donation.acceptedBy?.name}`
+                        : donation.status === 'picked_up'
+                        ? `Picked up by ${donation.acceptedBy?.name}`
                         : donation.status.charAt(0).toUpperCase() + donation.status.slice(1)}
                     </p>
                   </div>
@@ -218,7 +250,9 @@ const DonationDetails = () => {
                 <p className="text-sm flex items-center gap-2">
                   <Phone className="h-4 w-4" /> 
                   <span className="text-muted-foreground">
-                    {donation.status === 'accepted' ? 'Contact available in chat' : 'Contact details available after accepting'}
+                    {donation.status === 'accepted' || donation.status === 'in_transit' || donation.status === 'picked_up' 
+                      ? 'Contact available in chat' 
+                      : 'Contact details available after accepting'}
                   </span>
                 </p>
               </div>
@@ -232,6 +266,12 @@ const DonationDetails = () => {
                 {canAccept && (
                   <Button className="w-full" onClick={handleAccept}>
                     Accept Donation
+                  </Button>
+                )}
+                
+                {canTransit && (
+                  <Button className="w-full bg-orange-600 hover:bg-orange-700" onClick={handleTransit}>
+                    Mark as In Transit
                   </Button>
                 )}
                 
@@ -256,14 +296,6 @@ const DonationDetails = () => {
                   </Link>
                 )}
                 
-                {donation.status === 'pending' && user?.role === 'donor' && donation.donorId === user.id && (
-                  <Link to={`/edit-donation/${donation.id}`} className="w-full block">
-                    <Button variant="outline" className="w-full">
-                      Edit Donation
-                    </Button>
-                  </Link>
-                )}
-                
                 {donation.status === 'accepted' && donation.acceptedBy && (
                   <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
                     <p className="text-sm text-center text-blue-800 dark:text-blue-300">
@@ -279,6 +311,14 @@ const DonationDetails = () => {
                         </Link>
                       </div>
                     )}
+                  </div>
+                )}
+                
+                {donation.status === 'in_transit' && donation.acceptedBy && (
+                  <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-900">
+                    <p className="text-sm text-center text-orange-800 dark:text-orange-300">
+                      This donation is in transit with <span className="font-medium">{donation.acceptedBy.name}</span>
+                    </p>
                   </div>
                 )}
                 

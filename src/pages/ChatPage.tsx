@@ -1,17 +1,39 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useChat } from '@/context/ChatContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageCircle, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 
 const ChatPage = () => {
   const { user } = useAuth();
+  const { fetchUserChats, chats } = useChat();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedDonationId, setSelectedDonationId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (user) {
+      fetchUserChats();
+    }
+  }, [user, fetchUserChats]);
+
+  // Handle URL parameters for direct chat access
+  useEffect(() => {
+    const donationId = searchParams.get('donation');
+    if (donationId) {
+      setSelectedDonationId(donationId);
+      // Find chat for this donation
+      const chat = chats.find(c => c.donationId._id === donationId);
+      if (chat) {
+        setSelectedChatId(chat._id);
+      }
+    }
+  }, [searchParams, chats]);
 
   if (!user) {
     return (
@@ -34,6 +56,14 @@ const ChatPage = () => {
     );
   }
 
+  const handleChatSelect = (chatId: string) => {
+    const chat = chats.find(c => c._id === chatId);
+    if (chat) {
+      setSelectedChatId(chatId);
+      setSelectedDonationId(chat.donationId._id);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
@@ -46,7 +76,7 @@ const ChatPage = () => {
           <div>
             <h1 className="text-3xl font-bold">Chat</h1>
             <p className="text-muted-foreground">
-              Communicate with {user.role === 'donor' ? 'NGOs' : 'donors'} about donations
+              Communicate with {user.role === 'donor' ? 'NGOs' : user.role === 'ngo' ? 'donors' : 'users'} about donations
             </p>
           </div>
         </div>
@@ -54,16 +84,11 @@ const ChatPage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-          <ChatList 
-            onChatSelect={(chatId) => {
-              setSelectedChatId(chatId);
-              // You might need to extract donation ID from chat data
-            }} 
-          />
+          <ChatList onChatSelect={handleChatSelect} />
         </div>
 
         <div className="lg:col-span-2">
-          {selectedChatId && selectedDonationId ? (
+          {selectedDonationId ? (
             <ChatWindow 
               donationId={selectedDonationId}
               onClose={() => {
